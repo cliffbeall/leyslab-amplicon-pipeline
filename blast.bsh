@@ -1,0 +1,29 @@
+#!/bin/bash
+
+
+fasta="tmpz1fasta"
+db=$2
+num_procs=$3
+path_to_db=`echo $2|sed 's/\/[^\/]*$//'`/
+min_align_length=$4
+
+mkdir $1.seq
+mkdir $1.tab
+mkdir $1.sum
+
+##sed 's/\(>.*\)/#\1#/' $1 | tr "\n" "@" | sed -e 's/\@//g' -e 's/#//' | tr "#" "\n" > $fasta
+
+cp $1 $fasta
+
+split -l 8000 -a 3 $fasta $1.seq/$1.
+
+makeblastdb -in $db -dbtype nucl -parse_seqids
+
+echo "chunk=\$1" > blast_command.bsh
+echo "blastn -db $db -query $1.seq/\$chunk -out $1.tab/\$chunk -max_target_seqs 10 -dust no -gapopen 0 -gapextend 0 -reward 1 -penalty -2 -outfmt '6 qacc sacc qseq sseq' -word_size 10; php /Volumes/GriffenLeysLab/Zach/scripts/454/scripts/ncbiSummarize.php $1.seq/\$chunk $1.tab/\$chunk 100 $min_align_length f t $1.sum/\$chunk; gzip $1.tab/\$chunk;" >> blast_command.bsh
+
+chmod 755 blast_command.bsh
+
+ls $1.seq | xargs -P $num_procs -I {} ./blast_command.bsh {}
+
+rm $db.nhr $db.nin $db.nsd $db.nog $db.nsi $db.nsq
